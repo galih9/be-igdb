@@ -1,9 +1,18 @@
 import { Router, Request, Response } from "express";
 import { IGDB_API } from "../../types/url/igdb";
-import { arrayToObject, extractImageId, extractNames, extractVideo, extractWebsites, generateGameDetailQuery } from "../../utils/converter";
+import {
+  arrayToObject,
+  extractImageId,
+  extractNames,
+  extractVideo,
+  extractWebsites,
+  generateGameDetailQuery,
+  generateGameListQuery,
+} from "../../utils/converter";
 
 const router = Router();
 
+// get game info by id
 router.post("/", async (req: Request, res: Response) => {
   const gameId = req.body?.id;
   const token = req.headers.authorization;
@@ -32,7 +41,6 @@ router.post("/", async (req: Request, res: Response) => {
     });
 
     const data = await response.json();
-    // console.log(generateGameDetailQuery(payload?.id))
 
     if (!response.ok) {
       console.error("Error calling external API (fetch):", data);
@@ -53,8 +61,87 @@ router.post("/", async (req: Request, res: Response) => {
         genres: extractNames(game.genres),
         videos: extractVideo(game.videos),
         websites: extractWebsites(game.websites),
-        summary: game.summary
+        summary: game.summary,
+        storyline: game.storyline,
+        screenshot: extractImageId(game.screenshots),
       },
+    };
+
+    res.status(response.status).json(result);
+  } catch (error: any) {
+    console.error("Unexpected error (fetch):", error);
+    res.status(500).json({
+      message: "An unexpected error occurred",
+      details: error.message,
+    });
+  }
+});
+
+// get list
+router.post("/list", async (req: Request, res: Response) => {
+  const payload = req.body;
+  const token = req.headers.authorization;
+  const clientId = arrayToObject(req.rawHeaders)["Client-ID"];
+
+  if (
+    token === null ||
+    token === undefined ||
+    payload === null ||
+    payload === undefined
+  ) {
+    return res
+      .status(400)
+      .json({ message: "Missing token, or payload in request body" });
+  }
+
+  const bodyPayload = {
+    platform: payload.platform,
+    pageSize: payload.pageSize,
+    currentPage: payload.currentPage,
+  };
+
+  try {
+    const response = await fetch(`${IGDB_API}/games`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain",
+        "Client-ID": clientId,
+        Authorization: `${token}`,
+      },
+      body: generateGameListQuery(
+        bodyPayload.platform,
+        bodyPayload.pageSize,
+        bodyPayload.currentPage
+      ),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error("Error calling external API (fetch):", data);
+      return res.status(response.status).json({
+        message: "Failed to call external API",
+        details: data,
+      });
+    }
+    var resp = [];
+    for (let i = 0; i < data.length; i++) {
+      const element = data[i];
+      resp.push({
+        id: element.id,
+        cover: element.cover.image_id,
+        first_release_date: 1523923200,
+        genres: extractNames(element.genres),
+        name: element.name,
+        checksum: element.checksum,
+        game_type: element.game_type,
+      });
+    }
+
+    var result = {
+      status: "success",
+      code: response.status,
+      data: resp,
     };
 
     res.status(response.status).json(result);

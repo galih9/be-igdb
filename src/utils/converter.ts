@@ -61,7 +61,22 @@ type GamePayload = {
 };
 
 const generateGameDetailQuery = (id: string) => {
-  return `f aggregated_rating,name,artworks.image_id,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name,videos.video_id,videos.name,websites.url,websites.type.type, screenshots.image_id, summary; w id = ${id};`;
+  return `f aggregated_rating,name,artworks.image_id,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name,videos.video_id,videos.name,websites.url,websites.type.type, screenshots.image_id, summary,storyline; w id = ${id};`;
+};
+interface IProp {
+  platform: string;
+}
+const generateGameListQuery = (
+  platform: number, // Assuming platform ID is a number
+  pageSize: number,
+  currentPage: number
+) => {
+  const offset = (currentPage - 1) * pageSize; // Calculate the offset
+
+  return `f name,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name; 
+          w platforms = ${platform}; 
+          limit ${pageSize}; 
+          offset ${offset};`;
 };
 function arrayToObject(arr: string[]): { [key: string]: string } {
   const result: { [key: string]: string } = {};
@@ -107,7 +122,7 @@ interface TransformedItem {
 }
 
 function extractWebsites(items: any[]): TransformedItem[] {
-  return items.map(item => ({
+  return items.map((item) => ({
     url: item.url,
     name: item.type.type,
   }));
@@ -119,5 +134,6 @@ export {
   extractNames,
   extractImageId,
   extractVideo,
-  extractWebsites
+  extractWebsites,
+  generateGameListQuery
 };
