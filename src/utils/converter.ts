@@ -63,20 +63,26 @@ type GamePayload = {
 const generateGameDetailQuery = (id: string) => {
   return `f aggregated_rating,name,artworks.image_id,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name,videos.video_id,videos.name,websites.url,websites.type.type, screenshots.image_id, summary,storyline; w id = ${id};`;
 };
-interface IProp {
-  platform: string;
-}
 const generateGameListQuery = (
-  platform: number, // Assuming platform ID is a number
+  platform: number,
   pageSize: number,
-  currentPage: number
+  currentPage?: number,
+  offs?: number
 ) => {
-  const offset = (currentPage - 1) * pageSize; // Calculate the offset
+  const offset =
+    offs === undefined && currentPage != undefined
+      ? (currentPage - 1) * pageSize
+      : offs;
 
-  return `f name,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name; 
-          w platforms = ${platform}; 
-          limit ${pageSize}; 
-          offset ${offset};`;
+  return `f name,checksum,cover.image_id,first_release_date,game_status,game_type,genres.name;
+          w platforms = ${platform};
+          l ${pageSize};
+          o ${offset};
+          s name asc;`;
+};
+
+const generateGameCountQuery = (platform: number) => {
+  return `w platforms = ${platform};`;
 };
 function arrayToObject(arr: string[]): { [key: string]: string } {
   const result: { [key: string]: string } = {};
@@ -105,15 +111,17 @@ type IVideo = {
 };
 
 function extractImageId(items: any[]): string[] {
-  return items.map((item) => item.image_id);
+  return items?.map((item) => item.image_id) ?? [];
 }
 function extractNames(items: any[]): string[] {
-  return items.map((item) => item.name);
+  return items?.map((item) => item.name) ?? [];
 }
 function extractVideo(items: any[]): IVideo[] {
-  return items.map((item) => {
-    return { name: item.name, video_id: item.video_id };
-  });
+  return (
+    items?.map((item) => {
+      return { name: item.name, video_id: item.video_id };
+    }) ?? []
+  );
 }
 
 interface TransformedItem {
@@ -135,5 +143,6 @@ export {
   extractImageId,
   extractVideo,
   extractWebsites,
-  generateGameListQuery
+  generateGameListQuery,
+  generateGameCountQuery,
 };

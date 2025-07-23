@@ -6,6 +6,7 @@ import {
   extractNames,
   extractVideo,
   extractWebsites,
+  generateGameCountQuery,
   generateGameDetailQuery,
   generateGameListQuery,
 } from "../../utils/converter";
@@ -97,7 +98,8 @@ router.post("/list", async (req: Request, res: Response) => {
   const bodyPayload = {
     platform: payload.platform,
     pageSize: payload.pageSize,
-    currentPage: payload.currentPage,
+    currentPage: payload?.currentPage ?? undefined,
+    offset: payload?.offset ?? undefined
   };
 
   try {
@@ -111,7 +113,8 @@ router.post("/list", async (req: Request, res: Response) => {
       body: generateGameListQuery(
         bodyPayload.platform,
         bodyPayload.pageSize,
-        bodyPayload.currentPage
+        bodyPayload.currentPage,
+        bodyPayload.offset
       ),
     });
 
@@ -129,7 +132,7 @@ router.post("/list", async (req: Request, res: Response) => {
       const element = data[i];
       resp.push({
         id: element.id,
-        cover: element.cover.image_id,
+        cover: element?.cover?.image_id ?? "",
         first_release_date: 1523923200,
         genres: extractNames(element.genres),
         name: element.name,
@@ -138,12 +141,29 @@ router.post("/list", async (req: Request, res: Response) => {
       });
     }
 
+    const getTotal = await fetch(`${IGDB_API}/games/count`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain",
+        "Client-ID": clientId,
+        Authorization: `${token}`,
+      },
+      body: generateGameCountQuery(bodyPayload.platform),
+    });
+    const r = await getTotal.json();
+    const totalItem = r?.count ?? 0;
+    const totalPage = r?.count ? Math.ceil(r.count / bodyPayload.pageSize) : 0;
     var result = {
       status: "success",
       code: response.status,
       data: resp,
+      pagination: {
+        totalPage: Number(totalPage.toFixed(0)),
+        currentPage: Number(bodyPayload.currentPage),
+        pageSize: Number(bodyPayload.pageSize),
+        totalItem: Number(totalItem),
+      },
     };
-
     res.status(response.status).json(result);
   } catch (error: any) {
     console.error("Unexpected error (fetch):", error);
